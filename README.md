@@ -16,3 +16,10 @@ This GITHUB contains the following files:
 There are two folders:
 - results, results are saved here. Some example results are saved here aswell.
 - data, contains the JSON files for the data (not the real data ofc)
+
+
+# Packages
+- gym (openai gym)
+- stable baselines
+- pandas
+- numpy
