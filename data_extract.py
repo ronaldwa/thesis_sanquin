@@ -2,21 +2,20 @@ from tensorboard.backend.event_processing import event_accumulator
 import os
 import pandas as pd
 
-def find(name, path):
-    for root, dirs, files in os.walk(path):
-        if name in files:
-            return os.path.join(root, name)
-
-
 def merge_results(file_name):
+    """
+    Combines the different files provided by tensorboard and the metrics exported by the model
+    :param file_name: str, name of the file (see algorithm, date+name)
+    :return: pandas df, combined df
+    """
     # Import the correct files
     # Tensorboard (tb) event file
     tb_path = 'results/tensorboard_data/'
-    tb_file_name = file_name + '_1'
-    for root, dirs, files in os.walk(tb_path):
+    tb_file_name = file_name + '_1'  # Assuming, the name is changed every time
+    for root, dirs, files in os.walk(tb_path):  # Find the file
         if tb_file_name in dirs:
             tb_file_path = os.path.join(root, tb_file_name)
-    tb_file = os.listdir(tb_file_path)[0]
+    tb_file = os.listdir(tb_file_path)[0] # Every folder has only one file
     tb_event_file = tb_file_path + '/' + tb_file
 
     # Metrics (mt) csv files
@@ -45,6 +44,3 @@ def merge_results(file_name):
     df_combined_file_name = 'results/combined_data/' + file_name + '.csv'
     df_combined.to_csv(df_combined_file_name, index=False)
     return df_combined
-
-
-# test_result = merge_results('2020_09_20_13_55_3c_bloodgroup_5m_method2_withoutreset')

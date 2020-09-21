@@ -3,7 +3,9 @@ import numpy as np
 from sanquin_inventory import find_compatible_blood_list
 import pandas as pd
 from datetime import datetime
+
 time_string = datetime.now().strftime("%Y_%m_%d_%H_%M")
+
 
 # todo comments and information
 
@@ -108,7 +110,7 @@ def match_matrix(blood_group_keys, match_result_dict, file_name):
 
     fig.tight_layout()
     fig.set_size_inches(18.5, 10.5, forward=True)
-    plt.savefig('results/'+ time_string + '_' + file_name + '_match_matrix.png')
+    plt.savefig('results/' + time_string + '_' + file_name + '_match_matrix.png')
     plt.show()
 
 
@@ -163,7 +165,7 @@ def age_subplot(age_dict, file_name):
 
     plt.subplots_adjust(hspace=0.5)
     fig.set_size_inches(18.5, 10.5, forward=True)
-    plt.savefig('results/'+ time_string + '_' + file_name + '_age_subplot.png')
+    plt.savefig('results/' + time_string + '_' + file_name + '_age_subplot.png')
     plt.show()
 
 
@@ -207,16 +209,17 @@ def flow_trough_subplot(eval_metrics, file_name):
 
     plt.subplots_adjust(hspace=0.5)
     fig.set_size_inches(18.5, 10.5, forward=True)
-    plt.savefig('results/'+ time_string + '_' + file_name + '_flow_trough.png')
+    plt.savefig('results/' + time_string + '_' + file_name + '_flow_trough.png')
     plt.show()
 
+
 def age_table(result):
-    columns = ['blood_group'] + list(range(1,36))
+    columns = ['blood_group'] + list(range(1, 36))
     df_age = pd.DataFrame(columns=columns)
 
     for blood_binary, value in result['age'].items():
         row = [blood_binary]
-        for i in list(range(1,36)):
+        for i in list(range(1, 36)):
             if i in result['age'][blood_binary]:
                 row.append(result['age'][blood_binary][i])
             else:
@@ -226,6 +229,8 @@ def age_table(result):
     df_age.at['Total', 'blood_group'] = 'Total'
     df_age = df_age.set_index('blood_group')
     return df_age
+
+
 # age_table(result)
 
 def flow_metrics(eval_metrics):
@@ -259,7 +264,7 @@ def flow_metrics(eval_metrics):
 def match_matrix_table(data, blood_group_keys):
     blood_groups = blood_group_keys
     matrix_absolute = create_match_matrix(data['match'], blood_groups)[0]
-    matrix_percentage= create_match_matrix(data['match'], blood_groups)[1]
+    matrix_percentage = create_match_matrix(data['match'], blood_groups)[1]
 
     df_abs = pd.DataFrame(columns=['blood_group'] + blood_groups)
     df_per = pd.DataFrame(columns=['blood_group'] + blood_groups)
@@ -273,50 +278,88 @@ def match_matrix_table(data, blood_group_keys):
     df_per = df_per.set_index('blood_group')
     return df_abs, df_per
 
+
 def export_results(result, blood_group_keys, file_name):
     match_matrix(blood_group_keys, result['match'], file_name)
     age_subplot(result['age'], file_name)
     flow_trough_subplot(result, file_name)
 
-    with pd.ExcelWriter('results/'+time_string+'_'+file_name +'.xlsx') as writer:
+    with pd.ExcelWriter('results/' + time_string + '_' + file_name + '.xlsx') as writer:
         flow_metrics(result).to_excel(writer, sheet_name='Flow_metrics')
         age_table(result).to_excel(writer, sheet_name='Issued_age')
         match_matrix_table(result, blood_group_keys)[0].to_excel(writer, sheet_name='match_matrix_absolute')
         match_matrix_table(result, blood_group_keys)[1].to_excel(writer, sheet_name='match_matrix_percentage')
     print(f'results exported into: {file_name}.xlsx')
 
-def smooth(scalars, weight):  # Weight between 0 and 1
+
+def smooth(scalars, weight):
+    """
+    Smoothes the datapoints
+    :param scalars: list with datapoints
+    :param weight: float between 0 and 1, how smooth
+    :return: the smoothed data points
+    """
     last = scalars[0]  # First value in the plot (first timestep)
     smoothed = list()
     for point in scalars:
         smoothed_val = last * weight + (1 - weight) * point  # Calculate smoothed value
-        smoothed.append(smoothed_val)                        # Save it
-        last = smoothed_val                                  # Anchor the last smoothed value
-
+        smoothed.append(smoothed_val)  # Save it
+        last = smoothed_val  # Anchor the last smoothed value
     return smoothed
 
 
-def plot_learning_eval(data_list, labels, smoothing=0.5, ylim_cutoff=0):
+def plot_learning_eval(data_list, labels, file_name, smoothing=0.5, ylim_cutoff=0):
     """
-    data_list is a list of data in a list: [[1,2,3,4]]
-    labels: ['label1', "label2"]
+    Plots the data provided in a line chart. Up to 5 different datasets.
+    Also includes a smoothing option.
+    :param data_list: nested list, data to be shown. [[data1.1, data1.2],[data2]]
+    :param labels: list of strings, ['name of data1', 'name of data2']
+    :param smoothing: float, number to provide smoothing
+    :param ylim_cutoff: cutoff value in limiting. 0.01 is already a lot.
+    :return:
     """
-    ylim_list = []
+    # Initialize lists for scaling the graph
+    ylim_list_max = []
+    ylim_list_min = []
+
+    # Set the size of the picture
     plt.figure(num=None, figsize=(20, 6), dpi=300, facecolor='w', edgecolor='k')
+
+    # Initialize the colors of the lines in the graph
     color_list = ['blue', 'red', 'green', 'orange', 'black']
+
+    # Loop through the datasets to create a line and possibly a smoothing line
     for idx, data in enumerate(data_list):
         x = list(range(len(data)))
-        data_smooth = smooth(data, smoothing)
-        plt.plot(x, data_smooth, label=labels[idx], color=color_list[idx])
-        plt.plot(x, data, color=color_list[idx], alpha=0.2)
-        cutoff = round(len(data) * (1 - ylim_cutoff)) - 1
-        ylim_list.append(sorted(data)[cutoff])
+        if smoothing == 0:
+            plt.plot(x, data, color=color_list[idx])
+        else:
+            data_smooth = smooth(data, smoothing)
+            plt.plot(x, data_smooth, label=labels[idx], color=color_list[idx])
+            plt.plot(x, data, color=color_list[idx], alpha=0.2)
+
+        # Add values to scale the graph
+        cutoff_max = round(len(data) * (1 - ylim_cutoff)) - 1
+        ylim_list_max.append(sorted(data)[cutoff_max])
+        cutoff_min = round(len(data) * (1 - ylim_cutoff)) - 1
+        ylim_list_min.append(sorted(data, reverse=True)[cutoff_min])
 
     plt.legend()
-    ylim_value = max(ylim_list)
 
-    plt.ylim(0, ylim_value)
+    # Scale the graph
+    ylim_value_max = max(ylim_list_max)
+    ylim_value_min = min(ylim_list_min)
+    min_value = ylim_value_min - ((ylim_value_max - ylim_value_min) / 10)
+    max_value = ylim_value_max + ((ylim_value_max - ylim_value_min) / 10)
+    if ylim_value_min < 0:
+        plt.ylim(min_value, max_value)
+    elif ylim_value_min > 20:
+        min_value = ylim_value_min - ((ylim_value_max - ylim_value_min) / 10)
+        plt.ylim(min_value, max_value)
+    else:
+        plt.ylim(0, max_value)
+
+    # plt.ylim(ylim_value_min, ylim_value_max)
     plt.xlabel("Episodes")
+    plt.savefig('results/fig/' + file_name + '_reward_function.png')
     plt.show()
-
-
