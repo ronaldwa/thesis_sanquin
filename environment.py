@@ -438,7 +438,7 @@ class Env:
         :return:
         """
         # Open file in append mode
-        with open('results/'+file_name+'.csv', 'a+', newline='') as write_obj:
+        with open('results/evaluation_metrics_data/'+file_name+'.csv', 'a+', newline='') as write_obj:
             # Create a writer object from csv module
             csv_writer = writer(write_obj)
             # Add contents of list as last row in the csv file

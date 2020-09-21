@@ -12,6 +12,7 @@ import numpy as np
 # Own python files
 import sanquin_blood as sq_blood
 import environment
+import data_extract
 
 from datetime import datetime
 time_string = datetime.now().strftime("%Y_%m_%d_%H_%M")
@@ -35,15 +36,22 @@ MAX_AGE = 35
 INVENTORY_SIZE = 50
 observation_method = 2
 name = '_3c_bloodgroup_5m_method2_withreset' # name of the file
+file_name = time_string+name
 
 # Create environment
-env = environment.Env(supply_distribution[0], demand_distribution[0], MAX_AGE, INVENTORY_SIZE, observation_method, file_name=time_string+name)
+env = environment.Env(supply_distribution[0], demand_distribution[0], MAX_AGE, INVENTORY_SIZE, observation_method, file_name=file_name)
 # Optional: PPO2 requires a vectorized environment to run
 # the env is now wrapped automatically when passing it to the constructor
 env = DummyVecEnv([lambda: env])
 
 # Train the model
-model = PPO2(MlpPolicy, env, verbose=0, tensorboard_log="./ppo_v6/")  # create model
-model.learn(total_timesteps=5000000, tb_log_name="3c_queue_method2_50_50")  # train the model and run tensorboard
+model = PPO2(MlpPolicy, env, verbose=0, tensorboard_log="./tensorboard_data/ppo_v6/")  # create model
+model.learn(total_timesteps=5000000, tb_log_name=file_name)  # train the model and run tensorboard
 # TB- run: tensorboard --logdir ./ppo_v6/
-model.save(time_string + name)  # save the model
+
+# Export
+model.save(file_name)  # save the model
+
+# Combine results and save
+# might take a while!
+data_extract.merge_results(file_name)

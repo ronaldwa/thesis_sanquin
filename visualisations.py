@@ -284,3 +284,39 @@ def export_results(result, blood_group_keys, file_name):
         match_matrix_table(result, blood_group_keys)[0].to_excel(writer, sheet_name='match_matrix_absolute')
         match_matrix_table(result, blood_group_keys)[1].to_excel(writer, sheet_name='match_matrix_percentage')
     print(f'results exported into: {file_name}.xlsx')
+
+def smooth(scalars, weight):  # Weight between 0 and 1
+    last = scalars[0]  # First value in the plot (first timestep)
+    smoothed = list()
+    for point in scalars:
+        smoothed_val = last * weight + (1 - weight) * point  # Calculate smoothed value
+        smoothed.append(smoothed_val)                        # Save it
+        last = smoothed_val                                  # Anchor the last smoothed value
+
+    return smoothed
+
+
+def plot_learning_eval(data_list, labels, smoothing=0.5, ylim_cutoff=0):
+    """
+    data_list is a list of data in a list: [[1,2,3,4]]
+    labels: ['label1', "label2"]
+    """
+    ylim_list = []
+    plt.figure(num=None, figsize=(20, 6), dpi=300, facecolor='w', edgecolor='k')
+    color_list = ['blue', 'red', 'green', 'orange', 'black']
+    for idx, data in enumerate(data_list):
+        x = list(range(len(data)))
+        data_smooth = smooth(data, smoothing)
+        plt.plot(x, data_smooth, label=labels[idx], color=color_list[idx])
+        plt.plot(x, data, color=color_list[idx], alpha=0.2)
+        cutoff = round(len(data) * (1 - ylim_cutoff)) - 1
+        ylim_list.append(sorted(data)[cutoff])
+
+    plt.legend()
+    ylim_value = max(ylim_list)
+
+    plt.ylim(0, ylim_value)
+    plt.xlabel("Episodes")
+    plt.show()
+
+
