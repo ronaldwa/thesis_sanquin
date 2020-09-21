@@ -361,5 +361,5 @@ def plot_learning_eval(data_list, labels, file_name, smoothing=0.5, ylim_cutoff=
 
     # plt.ylim(ylim_value_min, ylim_value_max)
     plt.xlabel("Episodes")
-    plt.savefig('results/fig/' + file_name + '_reward_function.png')
+    plt.savefig('/results/fig/' + file_name + '_reward_function.png')
     plt.show()
