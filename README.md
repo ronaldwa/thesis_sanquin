@@ -20,7 +20,7 @@ Shown how results can be exported
   This file contains the code of combining the export of tensorboard and the other eval metrics.
 - **RL.py** \
 Contains all functions to train and test the RL agent
-- **FP1.py** \'
+- **FP1.py** \
 Code to run Fixed Policy 1
 - **FP2.py** \
 Code to run Fixed Policy 2
