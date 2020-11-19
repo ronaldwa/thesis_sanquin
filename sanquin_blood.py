@@ -39,13 +39,6 @@ blood_system = {1: ['A', 'B'],
 """
 
 import json
-import logging
-import numpy as np
-
-# Setup logging
-logger_blood = logging.getLogger(__name__)
-logging.basicConfig(filename='inventory.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %('
-                                                                                 'message)s')
 
 # Data
 data_folder = 'data/'
@@ -140,7 +133,6 @@ def calculate_distribution_ethnicity(distribution, c=1.0, n=0, a=0):
             blood_dict[antigen_combination] = prevalence_key
         distribution_dict[system_idx] = blood_dict
 
-    logger_blood.info(f"Blood distribution created, ethnicity: c:{c}, n:{n}, a:{a}")
     return distribution_dict
 
 
@@ -199,7 +191,6 @@ def get_bloodgroup_distribution(antigens_incl, data_choice=None, c=1.0, n=0, a=0
     :return: bloodgroup_prevalence: (dict) distribution of blood groups. Format:  {'bloodgroup':prevalence},{}}
     :return: included_antigen_names: (list) list with the names of antigens in correct order as antigens in the str.
     """
-    logger_blood.info(f"Request received for new bloodgroup distribution")
 
     # Import necessary files
     with open(data_folder + 'antigen_prevalence.json') as json_file:
@@ -226,7 +217,6 @@ def get_bloodgroup_distribution(antigens_incl, data_choice=None, c=1.0, n=0, a=0
         distribution['1'] = filter_distribution_bloodsystem(antigen_prevalence_supply, [1, 1, 0])
         distribution['2'] = recalculate_system_2(distribution['2'],
                                                  filter_distribution_bloodsystem(antigen_prevalence_supply, [0, 0, 1]))
-        logger_blood.info(f"Other dataset used: supply")
 
     if data_choice == 'demand':
         with open(data_folder + 'prevalence_demand.json') as json_file:
@@ -234,7 +224,6 @@ def get_bloodgroup_distribution(antigens_incl, data_choice=None, c=1.0, n=0, a=0
         distribution['1'] = filter_distribution_bloodsystem(antigen_prevalence_demand, [1, 1, 0])
         distribution['2'] = recalculate_system_2(distribution['2'],
                                                  filter_distribution_bloodsystem(antigen_prevalence_demand, [0, 0, 1]))
-        logger_blood.info(f"Other dataset used: demand")
 
     # B. Filter the data on the provided antigens
     distribution_use = {}
@@ -246,7 +235,6 @@ def get_bloodgroup_distribution(antigens_incl, data_choice=None, c=1.0, n=0, a=0
 
     # create a list with the names
     included_antigen_names = [antigen_names[index] for index, value in enumerate(antigens_incl) if value == 1]
-    logger_blood.info(f"Distribution returned with antigens: {included_antigen_names}")
 
     # Combine in blood groups
     bloodgroup_prevalence = calculate_prevalence_bloodgroup(distribution_use)

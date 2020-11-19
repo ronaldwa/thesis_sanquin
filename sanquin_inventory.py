@@ -1,5 +1,7 @@
 """
-FILL IN
+This file contains two classes:
+1. The inventory
+2. The queue
 """
 
 # ----- Import packages
@@ -18,8 +20,7 @@ def sample(distribution_dict, n_samples):
     """
     keys, probs = zip(*distribution_dict.items())
     sample_np = np.random.choice(keys, n_samples, p=probs)
-    sample = {key: list(sample_np).count(key) for key in keys}
-    return sample
+    return {key: list(sample_np).count(key) for key in keys}
 
 
 def find_compatible_blood_list(blood_groups_binary, requested_bloodgroup_idx, factor_type='receivability'):
@@ -27,6 +28,7 @@ def find_compatible_blood_list(blood_groups_binary, requested_bloodgroup_idx, fa
     Finds compatible blood given the blood groups as binary strings.
     :param blood_groups_binary: (list) All the blood groups in binary string format. (e.g. ['01', '11'] for B and AB.
     :param requested_bloodgroup_idx: (int) index for the asked blood. In the above example, 0 would be '01'
+    :param factor_type: string: 'receivability' or 'usability'
     :return: tuple of two lists:
         blood_list: (list): All compatible blood in binary string format: (e.g. ['00', '01', '11'])
         idx_list: (list): Index of all compatible blood: [0, 1, 2].
@@ -34,18 +36,19 @@ def find_compatible_blood_list(blood_groups_binary, requested_bloodgroup_idx, fa
     # Transform input
     compatible_blood = np.array([list(bloodgroup) for bloodgroup in blood_groups_binary], dtype=np.int)
     requested_bloodgroup = list(blood_groups_binary)[requested_bloodgroup_idx]
-    compatible_blood_copy = compatible_blood.copy()
 
     # Loop through antigens and determine whether the blood group is compatible
-    for i, v in enumerate(requested_bloodgroup):
-        # If antigen not in blood binary (0) than the provided blood groups cannot contain this antigen
-        if v == '0':
-            compatible_blood = compatible_blood[compatible_blood[:, i] != 1]
+    if factor_type == 'receivability':
+        for i, v in enumerate(requested_bloodgroup):
+            # If antigen not in blood binary (0) than the provided blood groups cannot contain this antigen
+            if v == '0':
+                compatible_blood = compatible_blood[compatible_blood[:, i] != 1]
 
     if factor_type == 'usability':
-        compatible_blood = [blood_group for blood_group in compatible_blood_copy.tolist() if
-                            blood_group not in compatible_blood.tolist()] + [
-                               [int(letter) for letter in requested_bloodgroup]]
+        for i, v in enumerate(requested_bloodgroup):
+            # If antigen in blood binary (1) than the provided blood groups cannot contain this antigen
+            if v == '1':
+                compatible_blood = compatible_blood[compatible_blood[:, i] == 1]
 
     # Create export lists
     blood_list = [''.join(str(e) for e in list(bloodgroup)) for bloodgroup in compatible_blood]
@@ -68,20 +71,24 @@ class Inv:
         self.blood_groups = list(distribution.keys())
         self.eval_boolean = eval_boolean
         self.max_age = max_age
+        self.compatible_match = {idx: find_compatible_blood_list(self.blood_groups, idx)
+                                 for idx, blood in enumerate(self.blood_groups)}
 
         # If evaluation, keep track of all kinds of values
-        if self.eval_boolean:
-            self.eval = {'donated': {},
-                         'requested': {},
-                         'provided': {},
-                         'removed': {},
-                         'match': {},
-                         'age': {},
-                         'infeasible': {}}
-            for key in self.eval.keys():
-                for blood_group in self.blood_groups:
-                    if key not in ['match', 'age']:
-                        self.eval[key][blood_group] = 0
+        self.eval = {'donated': {},
+                     'requested': {},
+                     'provided': {},
+                     'removed': {},
+                     'match': {},
+                     'age': {},
+                     'infeasible': {}}
+        for key in self.eval.keys():
+            for blood_group in self.blood_groups:
+                if key not in ['match', 'age']:
+                    self.eval[key][blood_group] = 0
+        for blood_group in self.blood_groups:
+            self.eval['match'][blood_group] = {}
+            self.eval['age'][blood_group] = {}
 
         # Keep track of all removed values
         self.removed = np.zeros((len(self.blood_groups)))
@@ -112,21 +119,16 @@ class Inv:
         """
         for i in range(doi):
             self.new_blood_supply(amount)
-            self.increase_age()  # Note that the first day will be empty. This is filled by the 'first day'
+            self.increase_age()  # Note that the first day will be empty. This is filled by the day
+            # (day starts with adding new supply)
 
-    def new_blood_supply(self, amount, mode='add'):
+    def new_blood_supply(self, amount, mode='not_add'):
         """
         Provide a new blood supply of size amount
         :param amount: int, number of RBCs that are requested
         :param mode: string, 'add', the number of RBCs that are removed from the total inventory are added.
         """
-        if mode == 'add':
-            amount = int(amount + sum(self.removed))
-            new_blood_amount = list(sample(self.distribution, amount).values())
-
-        # Can be archived? - Do not add inventory option
-        else:
-            new_blood_amount = list(sample(self.distribution, amount).values())
+        new_blood_amount = list(sample(self.distribution, amount).values())
         self.inventory[:, 0] = new_blood_amount
 
         # evaluation metrics
@@ -137,7 +139,7 @@ class Inv:
 
     def increase_age(self):
         """
-        By rolling the inventory, the first colunn becomes the column to remove.
+        By rolling the inventory, the first column becomes the column to remove.
         :return self.removed; numpy.array, an array containing the removed RBCs.
         """
         self.inventory = np.roll(self.inventory, 1)  # last row will become first row
@@ -152,14 +154,15 @@ class Inv:
                 self.eval['removed'][blood_group_binary] += quantity
         return self.removed
 
-    def get_inventory_state(self, amount, state_type='three_categories'):
+    def get_inventory_state(self, amount, state_type='three_categories', custom_cat=[8, 9, 9, 9]):
         """
-
+        :param custom_cat:
         :param amount: int, number of blood supplied
-        :param state_type: string, cateogry of how to get the inventory state. 'sum', 'three_categories' or 'average_age'
+        :param state_type: string, category of how to get the inventory state. 'sum', 'three_categories' or 'average_age'
         - Three categories, this provides a representation of the inventory by including three categories (fresh,
         core and danger age)
         - Average age, representation of blood where the average age and the mean age are provided.
+        :param custom_cat:
         :return: the state
         """
         # SUM - only the sum of the number of blood
@@ -195,9 +198,36 @@ class Inv:
 
             return state
 
-        if state_type == 'average_age':
-            # TODO: Normalization
+        if type(state_type) == 'custom_category':
+            # If custom cateogry, the category exists of a provided list of bins that the ages belong to
+            # The total number bins must equal the max age of the RBCs
+            assert sum(
+                custom_cat) == self.max_age, "The sum of the categories are not equal to the maximum age of the " \
+                                             "products "
 
+            # Fill the bins
+            state = np.zeros((len(self.blood_groups), len(custom_cat)))
+            cat_prev = 0
+            for idx, cat in enumerate(custom_cat):
+                cat = cat_prev + cat
+                state[:, idx] = self.inventory[:, cat_prev:cat].sum(axis=1) / len(
+                    self.inventory[:, cat_prev:cat][0])
+                cat_prev = cat
+
+            # Normalize, so that all values are withing 0-1.
+            # We assume that there is on average in the category never more than 2 times the inventory
+            blood_distr = list(self.distribution.values())  # IS FOUT, moet SUPPLY zijn
+
+            for index, row in enumerate(state):
+                stock = blood_distr[index] * amount * 2
+                state[index] = row / stock
+
+            return state
+
+        if state_type == 'average_age':
+            # Legacy, not used.
+            # Idea behind average age: provide a columns with the average age per blood group and a
+            # column with the quantity per blood group.
 
             # Get the sum of the inventory
             s0 = self.inventory[:, :].sum(axis=1)
@@ -216,7 +246,7 @@ class Inv:
             s1 = np.asarray(s1)
             s1 = (s1 - s1.min()) / (s1.max() - s1.min())
 
-            state = np.zeros((len(self.blood_groups), 2))  # 3 is the number of categories
+            state = np.zeros((len(self.blood_groups), 2))
             state[:, 0] = s0
             state[:, 1] = s1
 
@@ -237,6 +267,7 @@ class Inv:
         """
         Removes an item from the inventory for the provided index of the blood group
         :param blood_idx: int, index of the blood group
+        :return: the age of the RBC that is removed
         """
         for idx, value in enumerate(self.inventory[blood_idx][::-1]):
             if value > 0:
@@ -246,7 +277,7 @@ class Inv:
                     blood_group_binary = self.blood_groups[blood_idx]
                     self.eval['provided'][blood_group_binary] += 1
                     self.inventory_eval_age_match(blood_group_binary, self.max_age - idx)
-                break
+                return int(self.max_age - idx)
 
     def inventory_performance(self, action_type):
         """
@@ -263,7 +294,7 @@ class Inv:
         elif action_type == 'match':
             self.match += 1
         else:
-            print('error')
+            print('Error when logging the action type')
 
     def inventory_eval_queue(self, request_list):
         """
@@ -313,6 +344,9 @@ class Inv:
         else:
             self.eval['age'][sup_blood][age] += 1
 
+    def inventory_eval_infeasible(self, req_blood):
+        self.eval['infeasible'][req_blood] += 1
+
 
 class Request:
 
@@ -323,6 +357,9 @@ class Request:
         self.distribution = distribution
         self.queue = np.zeros((len(self.distribution.keys())))
         self.queue_size = len(self.distribution.keys())
+
+        self.compatible_match = {idx: find_compatible_blood_list(self.distribution.keys(), idx) for idx, blood in
+                                 enumerate(self.distribution.keys())}  # List with compatible matches
 
         # Evaluation
         self.eval_requested = {}
@@ -355,7 +392,7 @@ class Request:
         else:
             return False
 
-    def item_requested(self, inventory, binary_blood_keys, type_queue='difficulty'):
+    def item_requested(self, inventory, type_queue='difficulty'):
         """
         Returns the item that is requested. There are three ways to do this:
         1. First, simply running through the queue from left to right (which is by blood group)
@@ -363,11 +400,9 @@ class Request:
         3. Difficulty, based on difficulty to match. Start with most difficult one. This method calculated with each
         individual request what the most difficult to match item is.
         :param inventory: array, inventory
-        :param binary_blood_keys: list, the keys of the blood types
         :param type_queue: the type of providing the item, default is 'difficulty'
         :return blood_idx: int, the index of the blood group
         """
-
         # First item -> latest item
         if type_queue == 'first':
             for blood_idx, i in enumerate(self.queue):
@@ -392,7 +427,7 @@ class Request:
                     receivable_sum = 0
 
                     # get possible actions
-                    _, feasible_actions = find_compatible_blood_list(binary_blood_keys, idx)
+                    _, feasible_actions = self.compatible_match[idx]
 
                     # Calculate per compatible bloodgroup how many matches are still possible
                     for blood_binary in list(feasible_actions):
@@ -403,15 +438,3 @@ class Request:
 
             diff = (min(receivable_dict, key=receivable_dict.get))
             return diff
-
-    def inventory_eval_queue(self):
-        """
-        EVALUATION helper function
-        Add the queue items to the evaluation.
-        """
-
-        # todo is this a double function? Compare with inventory.inventory_eval_queue
-
-        for blood_group_index, quantity in enumerate(self.queue):
-            blood_group_binary = list(self.distribution.keys())[blood_group_index]
-            self.eval_requested[blood_group_binary] += quantity

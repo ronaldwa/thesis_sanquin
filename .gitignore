@@ -1,5 +1,7 @@
 # Don't add the tensorboard results, too large
 results/tensorboard_data/*
 
+
 # Don't add the python checkpoints
 .ipynb_checkpoints
+
