@@ -7,6 +7,7 @@ from sanquin_inventory import find_compatible_blood_list
 import sanquin_inventory as sq_inv
 from pulp import *
 from typing import Tuple
+import math
 
 
 def create_uf_dict(distribution: Tuple[dict, list], blood_groups_str: list) -> dict:
@@ -53,10 +54,10 @@ def get_rol(blood_groups_str: list, requested_blood_group: str, uf_sup_dict: dic
     return rol_dict
 
 
-def calculate_cost(blood_groups_str: list, uf_sup_dict: dict, uf_dem_dict: dict, i: str, r: int, j: str,
+def calculate_cost_linear(blood_groups_str: list, uf_sup_dict: dict, uf_dem_dict: dict, i: str, r: int, j: str,
                    max_age: int = 35, gamma: float = 0.5) -> float:
     """
-    Calculate the cost according to the FIFO/MROL function
+    Calculate the cost according to the FIFO/MROL function when linear (legacy function)
     :param blood_groups_str: list of string of blood groups
     :param uf_sup_dict: dict of the usability factor per blood group of supplied blood groups
     :param uf_sup_dict: dict of the usability factor per blood group of supplied blood groups
@@ -69,6 +70,28 @@ def calculate_cost(blood_groups_str: list, uf_sup_dict: dict, uf_dem_dict: dict,
     """
     delta_ij = get_rol(blood_groups_str, j, uf_sup_dict, uf_dem_dict)[i]
     return gamma * delta_ij + (1 - gamma) * (r / max_age)
+
+def calculate_cost(blood_groups_str: list, uf_sup_dict: dict, uf_dem_dict: dict, i: str, r: int, j: str,
+                   max_age: int = 35, gamma: float  = 0.5, alpha: float = math.log(7)/math.log(2),
+                   beta: float = math.log(7)/math.log(2)) -> float:
+    """
+    Calculate the cost according to the FIFO/MROL function
+    :param blood_groups_str: list of string of blood groups
+    :param uf_sup_dict: dict of the usability factor per blood group of supplied blood groups
+    :param uf_sup_dict: dict of the usability factor per blood group of supplied blood groups
+    :param i: str: binary blood group item in inventory
+    :param r: int: age of item in inventory
+    :param j: str: binary blood group in demand
+    :param max_age: int, max age of RBC, after which it is perished
+    :param gamma: float: hyperparameter between FIFO and MROL
+    :param beta: flaot: hyperparameter for the function for the FIFO costs
+    :param alpha: float: hyperparameter function for the MROL costs
+    :return: cost as float
+    """
+    delta_ij = get_rol(blood_groups_str, j, uf_sup_dict, uf_dem_dict)[i]
+    g1 = 1 - math.exp(-alpha * delta_ij)
+    g2 = 1 - math.exp(-beta * (r / max_age))
+    return gamma * g1 + (1 - gamma) * g2
 
 
 def lp_solve(blood_groups_str: list, inv: object, queue: object, uf_sup_dict: dict, uf_dem_dict: dict,
